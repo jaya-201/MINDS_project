@@ -1,0 +1,2 @@
+AUROC,Accuracy,Threshold,Mean_tangent_normal_dot,Mean_gradient_normal_alignment,Mean_gradient_tangent_alignment,Mean_rotation_score_difference
+1.0,1.0,0.030003786,0.0,1.0000000065439507,6.693997489156022e-09,3.308058e-08
