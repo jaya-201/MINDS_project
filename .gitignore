@@ -1,2 +1,3 @@
 data/**
 cache_dinov2_vitb14_10_paper.pt
+.venv

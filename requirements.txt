@@ -1,0 +1,27 @@
+# ConV / F-ConV toy project dependencies
+# Python 3.11 recommended.
+#
+# Install PyTorch separately for the target device BEFORE installing this file.
+# See the commands in the accompanying instructions.
+#
+# Do not add a CUDA-specific PyTorch wheel index here: that would make this
+# requirements file less portable between NVIDIA GPU, CPU, and other devices.
+
+# Core deep-learning framework is installed separately:
+# torch
+# torchvision
+
+# Stable Diffusion image generation
+diffusers>=0.35,<1.0
+transformers>=4.45,<6.0
+accelerate>=1.0,<2.0
+safetensors>=0.4
+huggingface_hub>=0.30
+Brotli>=1.2.0
+
+# Dataset handling, evaluation, and plots
+numpy>=1.26,<3.0
+Pillow>=10.0
+tqdm>=4.0
+scikit-learn>=1.4
+matplotlib>=3.8
