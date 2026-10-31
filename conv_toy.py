@@ -48,28 +48,84 @@ def list_images(d):
 
 
 def collect(real_dir, fake_dir, max_per_group, seed):
+    """
+    Collect images and assign train/test splits by filename stem.
+
+    Matching IDs across real/fake folders are always assigned to the same
+    split, preventing paired source images from crossing the train/test
+    boundary. max_per_group limits the number of unique IDs selected.
+    """
     rng = random.Random(seed)
 
-    def cap(lst):
-        lst = list(lst)
-        rng.shuffle(lst)
-        return lst[:max_per_group]
+    def index_images(paths, group_name):
+        indexed = {}
+        for path in paths:
+            image_id = path.stem
+            if image_id in indexed:
+                raise ValueError(
+                    f"Duplicate image ID '{image_id}' in group '{group_name}'. "
+                    "Expected one image per ID per group."
+                )
+            indexed[image_id] = path
+        return indexed
 
-    groups = {"real": cap(list_images(real_dir))}
+    groups = {"real": index_images(list_images(real_dir), "real")}
+
     fake_dir = Path(fake_dir)
-    direct = [p for p in fake_dir.iterdir() if p.suffix.lower() in IMG_EXT]
+    if not fake_dir.exists():
+        raise FileNotFoundError(f"Fake image directory does not exist: {fake_dir}")
+
+    direct = [
+        p for p in fake_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in IMG_EXT
+    ]
     if direct:
-        groups["fake"] = cap(direct)
+        groups["fake"] = index_images(direct, "fake")
+
     for sub in sorted(p for p in fake_dir.iterdir() if p.is_dir()):
         imgs = list_images(sub)
         if imgs:
-            groups[sub.name] = cap(imgs)
+            groups[sub.name] = index_images(imgs, sub.name)
+
+    all_ids = sorted(set().union(*(set(group.keys()) for group in groups.values())))
+    if not all_ids:
+        raise ValueError("No images found in the supplied real/fake directories.")
+
+    # Select IDs once globally, so matching images remain paired.
+    if max_per_group is not None and max_per_group > 0 and len(all_ids) > max_per_group:
+        rng.shuffle(all_ids)
+        selected_ids = all_ids[:max_per_group]
+    else:
+        selected_ids = all_ids[:]
+        rng.shuffle(selected_ids)
+
+    # A single split assignment per source-image ID, shared by every group.
+    split_by_id = {}
+    n_train = len(selected_ids) // 2
+    for i, image_id in enumerate(selected_ids):
+        split_by_id[image_id] = 0 if i < n_train else 1
+
     gen_names = list(groups.keys())  # index 0 == "real"
-    items = []  # (path, gen_id, split)  split: 0 = train, 1 = test
+    items = []  # (path, gen_id, split): 0 = train, 1 = test
+
     for gid, name in enumerate(gen_names):
-        paths = groups[name]
-        for i, p in enumerate(paths):
-            items.append((str(p), gid, 0 if i < len(paths) // 2 else 1))
+        for image_id in selected_ids:
+            path = groups[name].get(image_id)
+            if path is not None:
+                items.append((str(path), gid, split_by_id[image_id]))
+
+    # Show whether filename stems actually identify paired source images.
+    real_ids = set(groups["real"].keys())
+    for name, group in groups.items():
+        if name == "real":
+            continue
+        shared = len(real_ids & set(group.keys()))
+        fraction = shared / max(1, len(group))
+        print(
+            f"pairing with real for '{name}': {shared} shared IDs "
+            f"({fraction:.1%} of this group)"
+        )
+
     return items, gen_names
 
 
